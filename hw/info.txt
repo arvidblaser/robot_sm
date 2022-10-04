@@ -9,4 +9,5 @@ DC/DC omvandlare: XL6009
 DC/DC omvandlare: Voltage Level Translator TXB0104
 Avståndssensorer: VL53L1X-SATEL
 Rotationsgivare: Sharp 58
+DC/DC omvandlare: Switchregulator step-down 0.8V - 17 V
 
