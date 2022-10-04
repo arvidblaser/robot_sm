@@ -3,3 +3,10 @@ Här är det som finns
 Motor
 Motordrivare
 Arduino Nano BLE
+Batteri: SHIDA Li-PO 2*751545HP-400mAh 7.4V 20C 19G25
+Motordrivare: DRV8871
+DC/DC omvandlare: XL6009
+DC/DC omvandlare: Voltage Level Translator TXB0104
+Avståndssensorer: VL53L1X-SATEL
+Rotationsgivare: Sharp 58
+
