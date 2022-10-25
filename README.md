@@ -16,3 +16,8 @@ Programvaror använda i projektet (man får såklart använda andra om man vill)
 
 [Drawio](https://app.diagrams.net/) för flödesheman
 
+Under mappen HW finns filer relevanta till bilens hårdvara och i mappen SW finns filer relevanta för bilens mjukvara.
+
+För varje enskild funktion ska det finnas exempelkod för hur just den delen funkar.
+FÖr att testa BLE-demon rekommenderas appen "Bluefruit LE Connect" för att skicka och ta emot meddelanden över UART
+
