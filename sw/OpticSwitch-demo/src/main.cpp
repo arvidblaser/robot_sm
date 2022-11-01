@@ -17,16 +17,22 @@ int val = 0;  // variable to store the value read
 
 void setup() {
     pinMode(RED, OUTPUT);
+      Serial.begin(115200);
+
 }
 
 void loop() {
   
   val = analogRead(analogPin);  // read the input pin
+  Serial.println(val);
+
   if(val>THRESHOLD){
       digitalWrite(RED, HIGH); // turn the LED on by making the voltage HIGH
   }
   else{
     digitalWrite(RED, LOW); // turn the LED off by making the voltage LOW
   }
+    delay(100);
+
 }
 
