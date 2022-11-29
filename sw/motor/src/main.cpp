@@ -16,8 +16,10 @@ void setup() {
 void loop() {
 
   // ramp up forward
+  //i=0 0%, i= 255=100% pwm
+  analogWrite(MOTOR_IN1, 0);
   digitalWrite(MOTOR_IN1, LOW);
-  for (int i=0; i<255; i++) {
+  for (int i=100; i<175; i++) {
     analogWrite(MOTOR_IN2, i);
     delay(100);
   }
@@ -26,14 +28,14 @@ void loop() {
   //delay(1000);
   
   // ramp down forward
-  for (int i=255; i>=0; i--) {
+  for (int i=175; i>=100; i--) {
     analogWrite(MOTOR_IN2, i);
     delay(100);
   }
-
+  analogWrite(MOTOR_IN2, 0);
   // ramp up backward
   digitalWrite(MOTOR_IN2, LOW);
-  for (int i=0; i<255; i++) {
+  for (int i=100; i<175; i++) {
     analogWrite(MOTOR_IN1, i);
     delay(100);
   }
@@ -42,7 +44,7 @@ void loop() {
   //delay(1000);
 
   // ramp down backward
-  for (int i=255; i>=0; i--) {
+  for (int i=175; i>=100; i--) {
     analogWrite(MOTOR_IN1, i);
     delay(100);
   }
