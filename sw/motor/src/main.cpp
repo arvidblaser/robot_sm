@@ -17,7 +17,7 @@ void loop() {
 
   // ramp up forward
   //i=0 0%, i= 255=100% pwm
-  analogWrite(MOTOR_IN1, 0);
+  analogWrite(MOTOR_IN1, 0); //need to set PWM to 0 to stop it, digital write is not enough
   digitalWrite(MOTOR_IN1, LOW);
   for (int i=100; i<175; i++) {
     analogWrite(MOTOR_IN2, i);
