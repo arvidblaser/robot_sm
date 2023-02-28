@@ -9,9 +9,9 @@ VL53L1X sensor_1;
 VL53L1X sensor_2;
 VL53L1X sensor_3;
 
-const int reset_1 = 7;
-const int reset_2 = 8;
-const int reset_3 = 9;
+const int reset_1 = 10;
+const int reset_2 = 7;
+const int reset_3 = 4;
 
 void setup()
 {
@@ -43,6 +43,24 @@ void setup()
   delay(1000);
   sensor_1.setAddress((uint8_t)30);
   Serial.println("Sensor 1 initialized");
+
+  Serial.println("addresses set");
+  Serial.print("Address 1: ");
+  Serial.println(sensor_1.getAddress());
+
+  sensor_1.setDistanceMode(VL53L1X::Long);
+  sensor_1.setMeasurementTimingBudget(50000);
+
+  sensor_1.startContinuous(500);
+
+  //while(true){
+  //  Serial.print(sensor_1.read());
+  //  Serial.println("  (first sensor)"); 
+  //  if (sensor_1.timeoutOccurred()) { Serial.print(" 1. TIMEOUT"); }
+  //  delay(250);
+  //}
+
+
 
   pinMode(reset_2, INPUT);
   delay(1500);

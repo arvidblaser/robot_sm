@@ -12,6 +12,9 @@
 
 HardwareBLESerial &bleSerial = HardwareBLESerial::getInstance();
 
+char line[128]; //rxed ble data
+
+
 
 /* Motor */
 #define MOTOR_IN1 A2
@@ -19,12 +22,12 @@ HardwareBLESerial &bleSerial = HardwareBLESerial::getInstance();
 
 // Servo
 Servo servo;
-const byte servoPin = PIN_SERIAL_TX;
+#define servoPin PIN_SERIAL_TX
 
 // Tof
 
 // Rotation
-const byte interruptPin = A0;
+#define interruptPin A0
 
 /********** Globals *************/
 volatile byte red_led_state = LOW;
@@ -35,6 +38,11 @@ int counter = 0;
 
 /****** Function declarations *****/
 void count();
+void stop_wobot();
+void crash_forward(int speed);
+void crash_backward(int speed);
+
+void waiting_for_ble_cmd(const char* text);
 
 /******** Functions *********/
 void setup() {
@@ -45,7 +53,7 @@ void setup() {
   pinMode(RED_LED, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
 
-  if (!bleSerial.beginAndSetupBLE("Woboten")) {
+  if (!bleSerial.beginAndSetupBLE("Woboten reserv")) {
     while (true) {
       Serial.println("failed to initialize HardwareBLESerial!");
       delay(1000);
@@ -63,6 +71,19 @@ void setup() {
   /* Servo */
   servo.attach(servoPin);
 
+  waiting_for_ble_cmd("test");
+
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  red_led_state = !red_led_state;
+  digitalWrite(RED_LED, red_led_state);
+
+
+  /* Waiting for start */
+  waiting_for_ble_cmd("go");
 
   /* Testing Code Run once */
   // servo test
@@ -77,36 +98,49 @@ void setup() {
     }
 
 
-  // motor test
-  analogWrite(MOTOR_IN1, 0); //need to set PWM to 0 to stop it, digital write is not enough
-  analogWrite(MOTOR_IN2, 200);
-  delay(2000);
+  /* Run motor until stop */ 
+  crash_forward(200);
 
-  analogWrite(MOTOR_IN2, 0);
-
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-  red_led_state = !red_led_state;
-  digitalWrite(RED_LED, red_led_state);
-
-  bleSerial.poll();
-
-  while (bleSerial.availableLines() > 0) {
-    bleSerial.print((double)counter);
-    bleSerial.print(" You said: ");
-    char line[128]; 
-    bleSerial.readLine(line, 128);
-    bleSerial.println(line);
-  }
-  delay(500);
-
+  waiting_for_ble_cmd("end");
+  stop_wobot();
 }
 
 void count(){
   green_led_state = !green_led_state;
   digitalWrite(GREEN_LED, green_led_state);
   counter += 1;
+}
 
+void stop_wobot(){
+  analogWrite(MOTOR_IN1, 0);
+  analogWrite(MOTOR_IN2, 0);
+}
+
+void crash_forward(int speed){
+  analogWrite(MOTOR_IN1, speed);
+  analogWrite(MOTOR_IN2, 0);
+}
+
+void crash_backward(int speed){
+  analogWrite(MOTOR_IN1, 0);
+  analogWrite(MOTOR_IN2, speed);
+}
+
+void waiting_for_ble_cmd(const char* text){
+
+  bool waiting_for_cmd = true;
+  while(waiting_for_cmd){
+    bleSerial.print("Send '");
+    bleSerial.print(text); 
+    bleSerial.print("' to continue \n");
+    delay(1000);
+
+    bleSerial.poll();
+    while (bleSerial.availableLines() > 0){
+      bleSerial.readLine(line, 128);
+      if(strcmp(line, text) == 0){
+        waiting_for_cmd = false;
+      }
+    }
+  }
 }
