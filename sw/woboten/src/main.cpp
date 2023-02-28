@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include <HardwareBLESerial.h>
+#include <VL53L1X.h>
+
 
 
 /********* Pin definitions **********/
@@ -25,6 +27,17 @@ Servo servo;
 #define servoPin PIN_SERIAL_TX
 
 // Tof
+VL53L1X sensor_1;
+VL53L1X sensor_3;
+VL53L1X sensor_5;
+
+#define reset_1  10
+//#define reset_2  7 // not used yet
+#define reset_3  4
+//#define reset_2  2 // not used yet
+#define reset_5  PIN_SERIAL_RX
+
+
 
 // Rotation
 #define interruptPin A0
@@ -42,7 +55,9 @@ void stop_wobot();
 void crash_forward(int speed);
 void crash_backward(int speed);
 
-void waiting_for_ble_cmd(const char* text);
+bool waiting_for_ble_cmd(const char* text);
+
+void print_sensor_data();
 
 /******** Functions *********/
 void setup() {
@@ -71,7 +86,95 @@ void setup() {
   /* Servo */
   servo.attach(servoPin);
 
-  waiting_for_ble_cmd("test");
+  /* ToF */
+  pinMode(reset_1,OUTPUT);
+  pinMode(reset_3, OUTPUT);
+  pinMode(reset_5, OUTPUT);
+
+  digitalWrite(reset_1, LOW);
+  digitalWrite(reset_3, LOW);
+  digitalWrite(reset_5, LOW);  
+
+  delay(500);
+  Wire.begin();
+  Wire.setClock(400000); // use 400 kHz I2C
+
+  pinMode(reset_1, INPUT);
+  delay(1500);
+  sensor_1.setTimeout(500);
+  if (!sensor_1.init())
+  {
+    Serial.println("Failed to detect and initialize sensor 1!");
+    while (1);
+  }
+  delay(1000);
+  sensor_1.setAddress((uint8_t)30);
+  Serial.println("Sensor 1 initialized");
+
+  Serial.println("addresses set");
+  Serial.print("Address 1: ");
+  Serial.println(sensor_1.getAddress());
+
+  sensor_1.setDistanceMode(VL53L1X::Long);
+  sensor_1.setMeasurementTimingBudget(50000);
+
+  sensor_1.startContinuous(500);
+
+  pinMode(reset_3, INPUT);
+  delay(1500);
+  sensor_3.setTimeout(500);
+  if (!sensor_3.init())
+  {
+    Serial.println("Failed to detect and initialize sensor 2!");
+    while (1);
+  }
+  delay(1000);
+  sensor_3.setAddress((uint8_t)32);
+  Serial.println("Sensor 2 initialized");
+
+  pinMode(reset_5, INPUT);
+  delay(1500);
+  sensor_5.setTimeout(500);
+    if (!sensor_5.init())
+  {
+    Serial.println("Failed to detect and initialize sensor 3!");
+    while (1);
+  }
+  delay(1000);
+  sensor_5.setAddress((uint8_t)34);
+  Serial.println("Sensor 3 initialized");
+  
+  Serial.println("addresses set");
+  Serial.print("Address 1: ");
+  Serial.println(sensor_1.getAddress());
+  Serial.print("Address 3: ");
+  Serial.println(sensor_3.getAddress());
+  Serial.print("Address 5: ");
+  Serial.println(sensor_5.getAddress());
+  
+  sensor_1.setDistanceMode(VL53L1X::Long);
+  sensor_1.setMeasurementTimingBudget(50000);
+  
+	sensor_3.setDistanceMode(VL53L1X::Long);
+  sensor_3.setMeasurementTimingBudget(50000);
+  
+  sensor_5.setDistanceMode(VL53L1X::Long);
+  sensor_5.setMeasurementTimingBudget(50000);
+
+  sensor_1.startContinuous(500);
+  sensor_3.startContinuous(500);
+  sensor_5.startContinuous(500);
+
+
+  /* Other stuff*/
+  while(waiting_for_ble_cmd("test")){
+    bleSerial.println((double)(sensor_1.read()));
+    bleSerial.println((double)(sensor_3.read()));
+    bleSerial.println((double)(sensor_5.read()));
+    print_sensor_data();
+    delay(500);
+  }
+
 
 
 }
@@ -83,7 +186,7 @@ void loop() {
 
 
   /* Waiting for start */
-  waiting_for_ble_cmd("go");
+  while(waiting_for_ble_cmd("go"));
 
   /* Testing Code Run once */
   // servo test
@@ -99,9 +202,17 @@ void loop() {
 
 
   /* Run motor until stop */ 
+  
   crash_forward(200);
+  while (waiting_for_ble_cmd("end")){
+    print_sensor_data();
+    bleSerial.println((uint64_t)(sensor_1.read()));
+    bleSerial.println((uint64_t)(sensor_3.read()));
+    bleSerial.println((uint64_t)(sensor_5.read()));
 
-  waiting_for_ble_cmd("end");
+    delay(500);
+  }
+  
   stop_wobot();
 }
 
@@ -126,21 +237,40 @@ void crash_backward(int speed){
   analogWrite(MOTOR_IN2, speed);
 }
 
-void waiting_for_ble_cmd(const char* text){
+bool waiting_for_ble_cmd(const char* text){
 
-  bool waiting_for_cmd = true;
-  while(waiting_for_cmd){
-    bleSerial.print("Send '");
-    bleSerial.print(text); 
-    bleSerial.print("' to continue \n");
-    delay(1000);
+  //bool waiting_for_cmd = true;
+  //while(waiting_for_cmd){
+  bleSerial.print("Send '");
+  bleSerial.print(text); 
+  bleSerial.print("' to continue \n");
+  delay(1000);
 
-    bleSerial.poll();
-    while (bleSerial.availableLines() > 0){
-      bleSerial.readLine(line, 128);
-      if(strcmp(line, text) == 0){
-        waiting_for_cmd = false;
-      }
-    }
+  bleSerial.poll();
+  while (bleSerial.availableLines() > 0){
+    bleSerial.readLine(line, 128);
+    if(strcmp(line, text) == 0){
+      //waiting_for_cmd = false;
+      return false;
+    }  
   }
+  return true;
+  //}
+}
+
+
+void print_sensor_data(){
+    Serial.print(sensor_1.read());
+    Serial.println("  (first sensor)"); 
+    if (sensor_1.timeoutOccurred()) { Serial.print(" 1. TIMEOUT"); }
+
+    Serial.print(sensor_3.read());
+    Serial.println(" (second sensor)");
+    if (sensor_3.timeoutOccurred()) { Serial.print(" 2. TIMEOUT"); }
+
+    Serial.print(sensor_5.read());
+    Serial.println(" (third sensor)");
+    if (sensor_5.timeoutOccurred()) { Serial.print("3.  TIMEOUT"); }
+
+    Serial.println();
 }
