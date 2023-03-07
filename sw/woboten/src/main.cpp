@@ -50,7 +50,7 @@ int pos = 0;    // variable to store the servo position
 int counter = 0;
 
 // pid
-int GLOBAL_E_N = 0;
+double GLOBAL_E_N = 0;
 
 int left = 0;
 int right = 0;
@@ -174,24 +174,6 @@ void setup() {
 
 
   /* Other stuff*/
-  while(waiting_for_ble_cmd("test")){
-    print_sensor_data();
-    left = sensor_1.read();
-    right = sensor_5.read();
-    bleSerial.println((uint64_t)(left));
-    bleSerial.println((uint64_t)(sensor_3.read()));
-    bleSerial.println((uint64_t)(right));
-
-    Serial.print("Difference left - right = ");
-    Serial.println(left-right);
-
-    servo_val = pid(left-right);
-    Serial.print("servo val: ");
-    Serial.println(servo_val);
-    delay(500);
-  }
-
-
 
 }
 
@@ -205,34 +187,32 @@ void loop() {
   while(waiting_for_ble_cmd("go"));
 
   /* Testing Code Run once */
-  // servo test
-  for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
-      // in steps of 1 degree
-      servo.write(pos);              // tell servo to go to position in variable 'pos'
-      delay(15);                       // waits 15ms for the servo to reach the position
-    }
-    for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-      servo.write(pos);              // tell servo to go to position in variable 'pos'
-      delay(15);                       // waits 15ms for the servo to reach the position
-    }
-
+  
 
   /* Run motor until stop */ 
   
-  crash_forward(200);
+  crash_forward(120);
   while (waiting_for_ble_cmd("end")){
     print_sensor_data();
     left = sensor_1.read();
     right = sensor_5.read();
-    bleSerial.println((uint64_t)(left));
-    bleSerial.println((uint64_t)(sensor_3.read()));
-    bleSerial.println((uint64_t)(right));
-
-
+    //bleSerial.println((uint64_t)(left));
+    //bleSerial.println((uint64_t)(sensor_3.read()));
+    //bleSerial.println((uint64_t)(right));
     Serial.print("Difference left - right = ");
-    Serial.println(left-right);
-    pid(left-right);
-    delay(500);
+    Serial.println(right-left);
+
+    servo_val = pid(right-left);
+    Serial.print("servo val: ");
+    Serial.println(servo_val);
+    servo.write(servo_val); 
+
+    if(sensor_3.read()<300){
+      crash_backward(120);
+    }else{
+      crash_forward(120);
+    }
+
   }
   
   stop_wobot();
@@ -298,15 +278,17 @@ void print_sensor_data(){
 }
 
 int pid(int y_t){
-  int e_n_last = GLOBAL_E_N;
+  double e_n_last = GLOBAL_E_N;
   int r_t = 0, u_t = 0, e_t =0;
-  double kp=1, ki =0, kd = 1;
-  int t = 0;
+  double kp = 0.1, ki = 0, kd = 1;
+  double u_calc =0;
+  int t = 500;
 
   e_t = r_t-y_t;
-  GLOBAL_E_N = e_t;
+  GLOBAL_E_N = (double)e_t;
 
-  u_t = kp*e_t+kd*(e_t-e_n_last)/t;
+  u_calc = kp*GLOBAL_E_N;//+kd*(e_t-e_n_last)/t;
+  u_t = u_calc;
 
   //typical values
   //y(t) = diff betwen tof1 & tof5
