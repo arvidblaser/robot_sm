@@ -49,6 +49,13 @@ volatile byte green_led_state = LOW;
 int pos = 0;    // variable to store the servo position
 int counter = 0;
 
+// pid
+int GLOBAL_E_N = 0;
+
+int left = 0;
+int right = 0;
+int servo_val = 0;
+
 /****** Function declarations *****/
 void count();
 void stop_wobot();
@@ -58,7 +65,7 @@ void crash_backward(int speed);
 bool waiting_for_ble_cmd(const char* text);
 
 void print_sensor_data();
-
+int pid(int y_t);
 /******** Functions *********/
 void setup() {
   /* debug, led, ble */
@@ -168,10 +175,19 @@ void setup() {
 
   /* Other stuff*/
   while(waiting_for_ble_cmd("test")){
-    bleSerial.println((double)(sensor_1.read()));
-    bleSerial.println((double)(sensor_3.read()));
-    bleSerial.println((double)(sensor_5.read()));
     print_sensor_data();
+    left = sensor_1.read();
+    right = sensor_5.read();
+    bleSerial.println((uint64_t)(left));
+    bleSerial.println((uint64_t)(sensor_3.read()));
+    bleSerial.println((uint64_t)(right));
+
+    Serial.print("Difference left - right = ");
+    Serial.println(left-right);
+
+    servo_val = pid(left-right);
+    Serial.print("servo val: ");
+    Serial.println(servo_val);
     delay(500);
   }
 
@@ -206,10 +222,16 @@ void loop() {
   crash_forward(200);
   while (waiting_for_ble_cmd("end")){
     print_sensor_data();
-    bleSerial.println((uint64_t)(sensor_1.read()));
+    left = sensor_1.read();
+    right = sensor_5.read();
+    bleSerial.println((uint64_t)(left));
     bleSerial.println((uint64_t)(sensor_3.read()));
-    bleSerial.println((uint64_t)(sensor_5.read()));
+    bleSerial.println((uint64_t)(right));
 
+
+    Serial.print("Difference left - right = ");
+    Serial.println(left-right);
+    pid(left-right);
     delay(500);
   }
   
@@ -273,4 +295,29 @@ void print_sensor_data(){
     if (sensor_5.timeoutOccurred()) { Serial.print("3.  TIMEOUT"); }
 
     Serial.println();
+}
+
+int pid(int y_t){
+  int e_n_last = GLOBAL_E_N;
+  int r_t = 0, u_t = 0, e_t =0;
+  double kp=1, ki =0, kd = 1;
+  int t = 0;
+
+  e_t = r_t-y_t;
+  GLOBAL_E_N = e_t;
+
+  u_t = kp*e_t+kd*(e_t-e_n_last)/t;
+
+  //typical values
+  //y(t) = diff betwen tof1 & tof5
+  // in range 
+
+  u_t = u_t+90;
+  if(u_t>180){
+    u_t=180;
+  }
+  else if(u_t < 0){
+    u_t=0;
+  }
+  return(u_t);
 }
