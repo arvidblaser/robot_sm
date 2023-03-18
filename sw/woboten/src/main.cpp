@@ -46,15 +46,27 @@ volatile byte green_led_state = LOW;
 int pos = 0;    // variable to store the servo position
 int counter = 0;
 
-// pid
+// pid servo
 double GLOBAL_E_N = 0;
 
 int left = 0;
 int right = 0;
 int servo_val = 0;
 
+//rotations encoder, pid speed
+int E_SPEED_SUM = 0;
+int ROTATIONS = 0;
+unsigned long T_SPEED_PREV = 0;
+int E_SPEED_PREV = 0;
+
+//Globals for rot_ISR
+double ROTATION_SPEED = 0;
+unsigned long PREV_ROT_T = 0;
+
+
 /****** Function declarations *****/
 void count();
+void rot_ISR();
 void stop_wobot();
 void crash_forward(int speed);
 void crash_backward(int speed);
@@ -63,6 +75,7 @@ bool waiting_for_ble_cmd(const char* text);
 
 void print_sensor_data();
 int pid(int y_t);
+int set_speed(double speed);
 /******** Functions *********/
 void setup() {
   /* debug, led, ble */
@@ -81,7 +94,7 @@ void setup() {
 
   /* rotaion encoder */
   pinMode(interruptPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), count, CHANGE); //LOW, HIGH, CHANGE, RISING, FALLING
+  attachInterrupt(digitalPinToInterrupt(interruptPin), rot_ISR, RISING); //LOW, HIGH, CHANGE, RISING, FALLING
 
   /* Motor */
   pinMode(MOTOR_IN1, OUTPUT);
@@ -160,9 +173,9 @@ void loop() {
     servo.write(servo_val); 
 
     if(sensor[1].read()<300){
-      crash_backward(120);
+      crash_backward(set_speed(1));
     }else{
-      crash_forward(120);
+      crash_forward(set_speed(1));
     }
 
   }
@@ -174,6 +187,12 @@ void count(){
   green_led_state = !green_led_state;
   digitalWrite(GREEN_LED, green_led_state);
   counter += 1;
+}
+
+void rot_ISR(){
+  unsigned long t = millis();
+  ROTATION_SPEED = 1/(t-PREV_ROT_T);
+  PREV_ROT_T=t;
 }
 
 void stop_wobot(){
@@ -250,3 +269,30 @@ int pid(int y_t){
   }
   return(u_t);
 }
+
+int PID_speed(int r_speed ,int y_speed){
+   double e_t = r_speed - y_speed;
+   double kp = 200, kd = 0.1, ki= 0.1;
+   int u_pwm;
+   unsigned long t; //Proportional, derivative, integrate, time, previous time 
+   t = millis();
+   E_SPEED_SUM = E_SPEED_SUM + e_t*(t-T_SPEED_PREV);
+   u_pwm = kp*e_t + kd*(e_t - E_SPEED_PREV)/(t-T_SPEED_PREV); //+ ki*E_SPEED_SUM;
+   T_SPEED_PREV = t;
+   if(u_pwm<0){
+    u_pwm = 0;
+   }
+   return u_pwm;
+}
+
+int set_speed(double speed){ // cm/s
+  // 7 varv = 25 cm-> 1 varv 3.57 cm 
+  double goal_rotations_speed = speed; //byt skalfaktor, double?
+  double actual_rotations_speed = ROTATION_SPEED*3570;
+
+  int pwm = PID_speed(goal_rotations_speed, actual_rotations_speed);
+
+  return pwm;
+
+}
+
