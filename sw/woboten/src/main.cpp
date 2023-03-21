@@ -72,6 +72,7 @@ void crash_forward(int speed);
 void crash_backward(int speed);
 
 bool waiting_for_ble_cmd(const char* text);
+double set_pid_param(const char* text);
 
 void print_sensor_data();
 int pid(int y_t);
@@ -142,23 +143,15 @@ void setup() {
 
   /* Other stuff*/
   //set pid values
-  while(1){
-      bleSerial.println("Send a value: ");
-      delay(1000);
-      bleSerial.poll();
-      while (bleSerial.availableLines() > 0){
-        int buffer_s = bleSerial.readLine(line, 128);
-        int whole_number = 0;
-        for(int i=0; i<buffer_s; i++){
-          int number = line[i] - '0';
-          Serial.println(number);
-          whole_number = 10*whole_number + number;
-          Serial.println(whole_number);
+  double p = set_pid_param("p");
+  double i = set_pid_param("i");
+  double d = set_pid_param("d");
+  bleSerial.println(p);
+  bleSerial.println(i); 
+  bleSerial.println(d); 
+ 
 
-        }
-  }
-
-  }
+ 
 
 }
 
@@ -260,6 +253,43 @@ bool waiting_for_ble_cmd(const char* text){
   }
   return true;
 }
+
+double set_pid_param(const char* text){
+  bool waiting = true;
+  int number = 0, whole_number = 0;
+  int digit_number = 0, state =0, part =0;
+  double sum_number = 0;
+  while(waiting){
+    bleSerial.print("Send '");
+    bleSerial.print(text); 
+    bleSerial.print("' param \n");
+    delay(1000);
+    bleSerial.poll();
+    if(bleSerial.availableLines() > 0){
+      int buffer_s = bleSerial.readLine(line, 128);
+      waiting = false;
+
+      for(int i=0; i<buffer_s; i++){
+        if(line[i]== '.'){
+          part = i;
+          i++;
+          state = 1; 
+        }
+        if(state == 0){
+          number = line[i] - '0';
+          whole_number = 10*whole_number + number;
+        }
+        else if(state ==1){
+          number = line[i] - '0';
+          digit_number = 10*digit_number + number;
+        }
+      }
+      sum_number = whole_number +(double)digit_number/(pow(10,buffer_s-part-1));
+    }
+  }
+  return sum_number;
+}
+
 
 
 void print_sensor_data(){
