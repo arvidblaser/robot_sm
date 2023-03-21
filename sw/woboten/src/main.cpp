@@ -40,32 +40,32 @@ uint8_t sensor_address[] = {30, 32, 34};
 #define interruptPin A0
 
 /********** Globals *************/
-volatile byte red_led_state = LOW;
-volatile byte green_led_state = LOW;
+volatile byte RED_LED_STATE = LOW;
+volatile byte GREEN_LED_STATE = LOW;
 
-int pos = 0;    // variable to store the servo position
-int counter = 0;
 
 // pid servo
 double GLOBAL_E_N = 0;
 
-int left = 0;
-int right = 0;
-int servo_val = 0;
-
 //rotations encoder, pid speed
-int E_SPEED_SUM = 0;
+double E_SPEED_SUM = 0;
 int ROTATIONS = 0;
 unsigned long T_SPEED_PREV = 0;
-int E_SPEED_PREV = 0;
+double E_SPEED_PREV = 0;
+int U_PWM_ACTUAL;
 
 //Globals for rot_ISR
-double ROTATION_SPEED = 0;
+volatile int ROTATION_COUNTER = 0;
+volatile double ROTATION_SPEED = 0;
+volatile double AV_ROTATION_SPEED = 0;
+
 unsigned long PREV_ROT_T = 0;
+
+//Globals for set_speed
+unsigned long int t_prev_set_speed = 0;
 
 
 /****** Function declarations *****/
-void count();
 void rot_ISR();
 void stop_wobot();
 void crash_forward(int speed);
@@ -85,7 +85,7 @@ void setup() {
   pinMode(RED_LED, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
 
-  if (!bleSerial.beginAndSetupBLE("Woboten reserv")) {
+  if (!bleSerial.beginAndSetupBLE("Woboten")) {
     while (true) {
       Serial.println("failed to initialize HardwareBLESerial!");
       delay(1000);
@@ -141,13 +141,34 @@ void setup() {
   }
 
   /* Other stuff*/
+  //set pid values
+  while(1){
+      bleSerial.println("Send a value: ");
+      delay(1000);
+      bleSerial.poll();
+      while (bleSerial.availableLines() > 0){
+        int buffer_s = bleSerial.readLine(line, 128);
+        int whole_number = 0;
+        for(int i=0; i<buffer_s; i++){
+          int number = line[i] - '0';
+          Serial.println(number);
+          whole_number = 10*whole_number + number;
+          Serial.println(whole_number);
+
+        }
+  }
+
+  }
 
 }
 
 void loop() {
+  int left = 0;
+  int right = 0;
+  int servo_val = 0;
   // put your main code here, to run repeatedly:
-  red_led_state = !red_led_state;
-  digitalWrite(RED_LED, red_led_state);
+  RED_LED_STATE = !RED_LED_STATE;
+  digitalWrite(RED_LED, RED_LED_STATE);
 
 
   /* Waiting for start */
@@ -158,41 +179,55 @@ void loop() {
 
   /* Run motor until stop */ 
   
-  crash_forward(120);
   while (waiting_for_ble_cmd("end")){
-    print_sensor_data();
-    left = sensor[0].read();
-    right = sensor[2].read();
+    int pwm_result = 0;
+    bleSerial.println((double)pwm_result);
+    bleSerial.println((double)U_PWM_ACTUAL);
+    bleSerial.println((double)millis());
+    bleSerial.println((double)ROTATION_COUNTER);
+    bleSerial.println(E_SPEED_PREV);
+    //bleSerial.println(ROTATION_SPEED);
+    //bleSerial.println(AV_ROTATION_SPEED);
 
-    Serial.print("Difference left - right = ");
-    Serial.println(right-left);
+    //ROTATION_COUNTER = 0;
 
-    servo_val = pid(right-left);
-    Serial.print("servo val: ");
-    Serial.println(servo_val);
-    servo.write(servo_val); 
+    unsigned long currentMillis = 0, previousMillis =0, interval = 1000;
+    currentMillis = millis();
+    previousMillis= millis();
 
-    if(sensor[1].read()<300){
-      crash_backward(set_speed(1));
-    }else{
-      crash_forward(set_speed(1));
+    for(int i=0;i<10;i++){ //do this for 10s before ble message again
+      previousMillis = currentMillis;
+      while (currentMillis - previousMillis <= interval) {
+
+        //print_sensor_data();
+        left = sensor[0].read();
+        right = sensor[2].read();
+
+        //Serial.print("Difference left - right = ");
+        //Serial.println(right-left);
+
+        servo_val = pid(right-left);
+        servo.write(servo_val); 
+
+        //Serial.print("servo val: ");
+        //Serial.println(servo_val);
+
+        if(sensor[1].read()<300){
+          pwm_result = set_speed(20);
+          crash_backward(pwm_result); //120
+        }else{
+          crash_forward(set_speed(20));
+        }
+      
+        currentMillis = millis();
+      }
     }
+
+
 
   }
   
   stop_wobot();
-}
-
-void count(){
-  green_led_state = !green_led_state;
-  digitalWrite(GREEN_LED, green_led_state);
-  counter += 1;
-}
-
-void rot_ISR(){
-  unsigned long t = millis();
-  ROTATION_SPEED = 1/(t-PREV_ROT_T);
-  PREV_ROT_T=t;
 }
 
 void stop_wobot(){
@@ -214,7 +249,7 @@ bool waiting_for_ble_cmd(const char* text){
   bleSerial.print("Send '");
   bleSerial.print(text); 
   bleSerial.print("' to continue \n");
-  delay(1000);
+  delay(1000); // TODO: consider removing 
 
   bleSerial.poll();
   while (bleSerial.availableLines() > 0){
@@ -244,11 +279,10 @@ void print_sensor_data(){
 }
 
 int pid(int y_t){
-  double e_n_last = GLOBAL_E_N;
+  //double e_n_last = GLOBAL_E_N;
   int r_t = 0, u_t = 0, e_t =0;
-  double kp = 0.1, ki = 0, kd = 1;
+  double kp = 0.1;//, ki = 0, kd = 1;
   double u_calc =0;
-  int t = 500;
 
   e_t = r_t-y_t;
   GLOBAL_E_N = (double)e_t;
@@ -272,15 +306,20 @@ int pid(int y_t){
 
 int PID_speed(int r_speed ,int y_speed){
    double e_t = r_speed - y_speed;
-   double kp = 200, kd = 0.1, ki= 0.1;
+   double kp = 1, kd = 5000.0, ki= 0.0001;
    int u_pwm;
    unsigned long t; //Proportional, derivative, integrate, time, previous time 
    t = millis();
    E_SPEED_SUM = E_SPEED_SUM + e_t*(t-T_SPEED_PREV);
-   u_pwm = kp*e_t + kd*(e_t - E_SPEED_PREV)/(t-T_SPEED_PREV); //+ ki*E_SPEED_SUM;
+   u_pwm = kp*e_t + kd*(e_t - E_SPEED_PREV)/(t-T_SPEED_PREV) + ki*E_SPEED_SUM; //+ ki*E_SPEED_SUM;
    T_SPEED_PREV = t;
+   E_SPEED_PREV = e_t;
+   U_PWM_ACTUAL = u_pwm;
    if(u_pwm<0){
     u_pwm = 0;
+   }
+   if(u_pwm>120){
+    u_pwm = 120;
    }
    return u_pwm;
 }
@@ -288,11 +327,22 @@ int PID_speed(int r_speed ,int y_speed){
 int set_speed(double speed){ // cm/s
   // 7 varv = 25 cm-> 1 varv 3.57 cm 
   double goal_rotations_speed = speed; //byt skalfaktor, double?
-  double actual_rotations_speed = ROTATION_SPEED*3570;
-
+  int t = millis();
+  double actual_rotations_speed = ROTATION_COUNTER * 3570 /(t - t_prev_set_speed);//ROTATION_SPEED*3570;
+  t_prev_set_speed = t;
+  ROTATION_COUNTER = 0;
   int pwm = PID_speed(goal_rotations_speed, actual_rotations_speed);
 
   return pwm;
-
 }
 
+void rot_ISR(){
+  //unsigned long t = millis();
+  //ROTATION_SPEED = 1.0/(t-PREV_ROT_T);
+  //AV_ROTATION_SPEED = (AV_ROTATION_SPEED+ROTATION_SPEED)/2;
+  //PREV_ROT_T=t;
+
+  //GREEN_LED_STATE = !GREEN_LED_STATE;
+  //digitalWrite(GREEN_LED, GREEN_LED_STATE);
+  ROTATION_COUNTER += 1;
+}
