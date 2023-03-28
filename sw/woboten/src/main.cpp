@@ -63,6 +63,9 @@ unsigned long PREV_ROT_T = 0;
 
 //Globals for set_speed
 unsigned long int t_prev_set_speed = 0;
+double P_speed = 1;
+double I_speed = 0.0001;
+double D_speed = 5000;
 
 
 /****** Function declarations *****/
@@ -143,16 +146,7 @@ void setup() {
 
   /* Other stuff*/
   //set pid values
-  double p = set_pid_param("p");
-  double i = set_pid_param("i");
-  double d = set_pid_param("d");
-  bleSerial.println(p);
-  bleSerial.println(i); 
-  bleSerial.println(d); 
- 
-
- 
-
+  while(waiting_for_ble_cmd("hi"));
 }
 
 void loop() {
@@ -165,6 +159,18 @@ void loop() {
 
 
   /* Waiting for start */
+  bleSerial.println("default pid values: (currently new must be written)");
+  bleSerial.println(P_speed);
+  bleSerial.println(I_speed);
+  bleSerial.println(D_speed);
+  bleSerial.println("test");
+
+  P_speed = set_pid_param("p");
+  I_speed = set_pid_param("i");
+  D_speed = set_pid_param("d");
+  bleSerial.println(P_speed);
+  bleSerial.println(I_speed);
+  bleSerial.println(D_speed);
   while(waiting_for_ble_cmd("go"));
 
   /* Testing Code Run once */
@@ -174,11 +180,19 @@ void loop() {
   
   while (waiting_for_ble_cmd("end")){
     int pwm_result = 0;
+    bleSerial.println("Some data:");
+    bleSerial.print("pwm_result: ");
     bleSerial.println((double)pwm_result);
+    bleSerial.print("U_PWM_ACTUAL: ");
     bleSerial.println((double)U_PWM_ACTUAL);
+    bleSerial.print("millis(): ");
     bleSerial.println((double)millis());
+    bleSerial.print("ROTATION_COUNTER: ");
     bleSerial.println((double)ROTATION_COUNTER);
+    bleSerial.print("E_SPEED_PREV: ");
     bleSerial.println(E_SPEED_PREV);
+    bleSerial.println("data done");
+
     //bleSerial.println(ROTATION_SPEED);
     //bleSerial.println(AV_ROTATION_SPEED);
 
@@ -242,7 +256,7 @@ bool waiting_for_ble_cmd(const char* text){
   bleSerial.print("Send '");
   bleSerial.print(text); 
   bleSerial.print("' to continue \n");
-  delay(1000); // TODO: consider removing 
+  delay(100); // TODO: consider removing 
 
   bleSerial.poll();
   while (bleSerial.availableLines() > 0){
@@ -263,7 +277,7 @@ double set_pid_param(const char* text){
     bleSerial.print("Send '");
     bleSerial.print(text); 
     bleSerial.print("' param \n");
-    delay(1000);
+    delay(3000);
     bleSerial.poll();
     if(bleSerial.availableLines() > 0){
       int buffer_s = bleSerial.readLine(line, 128);
@@ -336,20 +350,21 @@ int pid(int y_t){
 
 int PID_speed(int r_speed ,int y_speed){
    double e_t = r_speed - y_speed;
-   double kp = 1, kd = 5000.0, ki= 0.0001;
+
+   //double kp = 1, kd = 5000.0, ki= 0.0001;
    int u_pwm;
    unsigned long t; //Proportional, derivative, integrate, time, previous time 
    t = millis();
    E_SPEED_SUM = E_SPEED_SUM + e_t*(t-T_SPEED_PREV);
-   u_pwm = kp*e_t + kd*(e_t - E_SPEED_PREV)/(t-T_SPEED_PREV) + ki*E_SPEED_SUM; //+ ki*E_SPEED_SUM;
+   u_pwm = P_speed*e_t + D_speed*(e_t - E_SPEED_PREV)/(t-T_SPEED_PREV) + I_speed*E_SPEED_SUM; //+ ki*E_SPEED_SUM;
    T_SPEED_PREV = t;
    E_SPEED_PREV = e_t;
    U_PWM_ACTUAL = u_pwm;
    if(u_pwm<0){
     u_pwm = 0;
    }
-   if(u_pwm>120){
-    u_pwm = 120;
+   if(u_pwm>150){
+    u_pwm = 150;
    }
    return u_pwm;
 }
