@@ -208,11 +208,11 @@ void loop()
 
     // ROTATION_COUNTER = 0;
 
-    unsigned long currentMillis = 0, previousMillis = 0, interval = 1000;
+    unsigned long currentMillis = 0, previousMillis = 0, interval = 10;
     currentMillis = millis();
     previousMillis = millis();
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1000; i++)
     { // do this for 10s before ble message again
       previousMillis = currentMillis;
       while (currentMillis - previousMillis <= interval)
@@ -235,7 +235,7 @@ void loop()
         //{
         // pwm_result = set_speed(20);
         // crash_backward(pwm_result); // 120
-        crash_forward(set_speed(R_speed));
+        
         //}
         // else
         //{
@@ -244,6 +244,8 @@ void loop()
 
         currentMillis = millis();
       }
+      crash_forward(set_speed(R_speed));
+
     }
   }
 
@@ -438,4 +440,5 @@ void rot_ISR()
   // GREEN_LED_STATE = !GREEN_LED_STATE;
   // digitalWrite(GREEN_LED, GREEN_LED_STATE);
   ROTATION_COUNTER += 1;
+  // TODO mät intervall för rotenkoder på oscillioskop
 }
