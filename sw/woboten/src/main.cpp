@@ -59,11 +59,11 @@ volatile double AV_ROTATION_SPEED = 0;
 unsigned long PREV_ROT_T = 0;
 
 // Globals for set_speed
-double R_speed = 0;
+double R_speed = 40;
 unsigned long int t_prev_set_speed = 0;
-double P_speed = 1;
+double P_speed = 35;
 double I_speed = 0.0001;
-double D_speed = 5000;
+double D_speed = 0.0001;
 
 /****** Function declarations *****/
 void rot_ISR();
@@ -219,14 +219,14 @@ void loop()
       {
 
         // print_sensor_data();
-        // left = sensor[0].read();
-        // right = sensor[2].read();
+         left = sensor[0].read();
+         right = sensor[2].read();
 
         // Serial.print("Difference left - right = ");
         // Serial.println(right-left);
 
-        // servo_val = pid_turn(right, left);
-        // servo.write(servo_val);
+         servo_val = pid_turn(right, left);
+         servo.write(servo_val);
 
         // Serial.print("servo val: ");
         // Serial.println(servo_val);
