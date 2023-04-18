@@ -211,6 +211,7 @@ void loop()
     unsigned long currentMillis = 0, previousMillis = 0, interval = 10;
     currentMillis = millis();
     previousMillis = millis();
+    bool run_forward = true;
 
     for (int i = 0; i < 1000; i++)
     { // do this for 10s before ble message again
@@ -219,33 +220,40 @@ void loop()
       {
 
         // print_sensor_data();
-         left = sensor[0].read();
-         right = sensor[2].read();
+        left = sensor[0].read(false);
+        right = sensor[2].read(false);
 
         // Serial.print("Difference left - right = ");
         // Serial.println(right-left);
 
-         servo_val = pid_turn(right, left);
-         servo.write(servo_val);
+        servo_val = pid_turn(right, left);
 
         // Serial.print("servo val: ");
         // Serial.println(servo_val);
 
-        // if (sensor[1].read() < 300)
-        //{
-        // pwm_result = set_speed(20);
-        // crash_backward(pwm_result); // 120
-        
-        //}
-        // else
-        //{
-        // crash_forward(set_speed(20));
-        //}
+        if (sensor[1].read(false) < 300)
+        {
+          run_forward = false;
+          servo.write(180-servo_val);
+        }
+        else
+        {
+          run_forward = true;
+          servo.write(servo_val);
+        }
 
         currentMillis = millis();
       }
-      crash_forward(set_speed(R_speed));
 
+      if (run_forward)
+      {
+        crash_forward(set_speed(R_speed));
+      }
+      else
+      {
+        pwm_result = set_speed(R_speed);
+        crash_backward(pwm_result); // 120
+      }
     }
   }
 
@@ -362,11 +370,11 @@ int pid_turn(int right_t, int left_t)
 {
   // double e_n_last = GLOBAL_E_N;
   int threshold = 1000;
-  if (right_t < threshold && left_t < threshold)
+  if (right_t < threshold || left_t < threshold)
   {
     int y_t = right_t - left_t;
     int r_t = 0, u_t = 0, e_t = 0;
-    double kp = 0.1; //, ki = 0, kd = 1;
+    double kp = 0.125; //, ki = 0, kd = 1;
     double u_calc = 0;
 
     e_t = r_t - y_t;
@@ -410,9 +418,9 @@ int PID_speed(int r_speed, int y_speed)
   {
     u_pwm = 0;
   }
-  if (u_pwm > 150)
+  if (u_pwm > 200)
   {
-    u_pwm = 150;
+    u_pwm = 200; //kanske ballar ur men behövs högre än 150 för att backamed full sväng
   }
   return u_pwm;
 }

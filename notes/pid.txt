@@ -1,0 +1,8 @@
+PID
+12hz -> ~40cm/s
+
+https://playground.arduino.cc/Code/PIDLibrary/
+
+https://electronics.stackexchange.com/questions/252704/problems-with-arduino-pid-tuning-on-dc-motor
+
+https://forum.arduino.cc/t/change-the-pwm-frequency-on-arduino-nano-33-ble/848311
